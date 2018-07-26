@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingBottom="10dp"
+    android:paddingEnd="?attr/dialogPreferredPadding"
+    android:paddingStart="?attr/dialogPreferredPadding">
+
+    <LinearLayout
+        android:id="@+id/type_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="10dp"
+            android:text="@string/dialog_edit_squares_type_title" />
+
+        <Spinner
+            android:id="@+id/type_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="10dp"
+            android:text="@string/dialog_edit_squares_item_name_title" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <EditText
+                android:id="@+id/name_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/edit_dialog_button_horizontal_padding"
+                android:layout_marginStart="@dimen/edit_dialog_button_horizontal_padding"
+                android:imeOptions="actionNext"
+                android:inputType="text"
+                android:maxLines="1"
+                android:paddingEnd="22dp" />
+
+            <Button
+                android:id="@+id/clear_name_button"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/ic_close_white_24dp"
+                android:backgroundTint="@color/colorAccent" />
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="10dp"
+        android:text="@string/dialog_edit_squares_image_title" />
+
+    <Button
+        android:id="@+id/paste_and_crop_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/edit_dialog_button_horizontal_padding"
+        android:text="@string/dialog_edit_squares_image_paste_url_button_text"
+        android:textColor="@android:color/white" />
+
+    <Button
+        android:id="@+id/open_and_crop_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/edit_dialog_button_horizontal_padding"
+        android:text="@string/dialog_edit_squares_image_open_image_button_text"
+        android:textColor="@android:color/white" />
+
+    <ImageButton
+        android:id="@+id/preview"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp"
+        android:background="#FFCCCCCC"
+        android:elevation="7dp"
+        android:foreground="?android:attr/selectableItemBackground"
+        android:scaleType="centerCrop" />
+
+    <Button
+        android:id="@+id/delete_image_button"
+        android:layout_marginTop="10dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/dialog_edit_squares_image_delete_button_text"
+        android:backgroundTint="#ff0000"
+        android:textColor="@android:color/white" />
+
+</LinearLayout>

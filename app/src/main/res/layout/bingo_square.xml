@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.matthewn4444.wonderfestbingo.ui.SquareRelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="@android:color/white"
+    android:layout_height="wrap_content">
+
+    <ImageView
+        android:id="@+id/image"
+        android:background="@color/bingo_empty_bg"
+        android:scaleType="centerCrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/text"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:textColor="@android:color/white"
+        android:shadowRadius="5"
+        android:textStyle="bold"
+        android:layout_margin="1dp"
+        android:shadowColor="@android:color/black"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+</com.matthewn4444.wonderfestbingo.ui.SquareRelativeLayout>
