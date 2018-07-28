@@ -165,12 +165,12 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
-            mDialog.handleActivityResult(requestCode, resultCode, data);
-        } else if (resultCode == UCrop.RESULT_ERROR) {
-            final Throwable cropError = UCrop.getError(data);
-            if (cropError != null) {
-                Log.e(TAG, cropError.getMessage(), cropError);
+        if (!mDialog.handleActivityResult(requestCode, resultCode, data)) {
+            if (resultCode == UCrop.RESULT_ERROR) {
+                final Throwable cropError = UCrop.getError(data);
+                if (cropError != null) {
+                    Log.e(TAG, cropError.getMessage(), cropError);
+                }
             }
         }
     }

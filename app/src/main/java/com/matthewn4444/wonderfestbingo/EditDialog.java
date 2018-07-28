@@ -75,23 +75,41 @@ public class EditDialog {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
                     if (mCurrentData != null) {
+                        // If chosen an image, then move any temp files as new files
+                        if (mLastCroppedImageUri != null) {
+                            File original = getOriginalFilePath(mCurrentSquareId, false);
+                            File crop = getCropFilePath(mCurrentSquareId, false);
+                            File originalTmp = getOriginalFilePath(mCurrentSquareId, true);
+                            File cropTmp = getCropFilePath(mCurrentSquareId, true);
+
+                            // If temp files exist, delete original files if exist before rename
+                            if (originalTmp.exists()) {
+                                if (original.exists() && !original.delete()) {
+                                    toast("Cannot delete original image for new one.");
+                                    return;
+                                }
+                                if (!originalTmp.renameTo(original)) {
+                                    toast("Cannot set new original image.");
+                                    return;
+                                }
+                                mLastOriginalImageUri = Uri.fromFile(original);
+                            }
+                            if (cropTmp.exists()) {
+                                if (crop.exists() && !crop.delete()) {
+                                    toast("Cannot delete crop image for new one.");
+                                    return;
+                                }
+                                if (!cropTmp.renameTo(crop)) {
+                                    toast("Cannot set new crop image.");
+                                    return;
+                                }
+                                mLastCroppedImageUri = Uri.fromFile(crop);
+                            }
+                        }
+
                         mCurrentData.setName(mNameText.getText().toString().trim());
                         mCurrentData.setImageUri(mLastCroppedImageUri);
                         mCurrentData.setOriginalImageUri(mLastOriginalImageUri);
-
-                        // Delete the images if they exist if deleted
-                        if (mLastCroppedImageUri == null) {
-                            File srcFile = new File(mActivity.getFilesDir(),
-                                    mCurrentSquareId + ".jpg");
-                            File dstFile = new File(mActivity.getFilesDir(),
-                                    mCurrentSquareId + "_crop.jpg");
-                            if (srcFile.exists()) {
-                                srcFile.delete();
-                            }
-                            if (dstFile.exists()) {
-                                dstFile.delete();
-                            }
-                        }
                     }
                     if (mListener != null) {
                         mListener.onEditDialogComplete(mCurrentSquareId, mCurrentData);
@@ -104,6 +122,7 @@ public class EditDialog {
             new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
+                    deleteImageFiles(mCurrentSquareId, true);
                     reset();
                 }
             };
@@ -120,7 +139,7 @@ public class EditDialog {
                     }
 
                     // Crop downloaded image
-                    File file = new File(mActivity.getFilesDir(), mCurrentSquareId + ".jpg");
+                    File file = getOriginalFilePath(mCurrentSquareId, true);
                     if (file.exists()) {
                         mLastOriginalImageUri = Uri.fromFile(file);
                         crop(mLastOriginalImageUri);
@@ -186,6 +205,13 @@ public class EditDialog {
                     }
                     return true;
             }
+        } else if (resultCode == Activity.RESULT_CANCELED) {
+            switch (requestCode) {
+                case UCrop.REQUEST_CROP:
+                    // If crop is cancelled, set the original image from passed in data
+                    mLastOriginalImageUri = mCurrentData.getOriginalImageUri();
+                    return true;
+            }
         }
         return false;
     }
@@ -246,7 +272,7 @@ public class EditDialog {
                     }
                     mImageDownloadTask = new DownloadImageTask(mActivity, mActivity.getFilesDir());
                     mImageDownloadTask.setOnDownloadImageFinishedListener(mImageDownloadListener);
-                    mImageDownloadTask.execute(url, mCurrentSquareId + ".jpg");
+                    mImageDownloadTask.execute(url, mCurrentSquareId + ".jpg.tmp");
 
                     mImageDownloadDialog = new ProgressDialog(mActivity);
                     mImageDownloadDialog.setTitle(R.string.dialog_edit_squares_download_title);
@@ -375,8 +401,7 @@ public class EditDialog {
     }
 
     private void crop(Uri source) {
-        Uri destinationUri = Uri.fromFile(new File(mActivity.getFilesDir(),
-                mCurrentSquareId + "_crop.jpg"));
+        Uri destinationUri = Uri.fromFile(getCropFilePath(mCurrentSquareId, true));
         UCrop.of(source, destinationUri)
                 .withAspectRatio(1, 1)
                 .withMaxResultSize(MAX_CROP_SIZE, MAX_CROP_SIZE)
@@ -393,13 +418,27 @@ public class EditDialog {
         mDeleteImageButton.animate().alpha(1f).start();
     }
 
+    private boolean deleteImageFiles(long id, boolean temp) {
+        boolean res1 = getOriginalFilePath(id, temp).delete();
+        boolean res2 = getCropFilePath(id, temp).delete();
+        return res1 && res2;
+    }
+
+    private File getCropFilePath(long id, boolean temp) {
+        return new File(mActivity.getFilesDir(),id + "_crop.jpg" + (temp ? ".tmp" : ""));
+    }
+
+    private File getOriginalFilePath(long id, boolean temp) {
+        return new File(mActivity.getFilesDir(),id + ".jpg" + (temp ? ".tmp" : ""));
+    }
+
     private Uri copyFile(Uri sourceUri) {
         if (mCopying) {
             Log.w(TAG, "You are already copying, prevented this copy");
             return null;
         }
-        boolean success = false;
-        String dstFileName = mCurrentSquareId + ".jpg";
+        boolean success;
+        String dstFileName = mCurrentSquareId + ".jpg.tmp";
         BufferedInputStream bis = null;
         BufferedOutputStream bos = null;
 
