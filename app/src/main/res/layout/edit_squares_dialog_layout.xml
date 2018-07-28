@@ -18,32 +18,19 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="5dp"
             android:layout_marginTop="10dp"
-            android:text="@string/dialog_edit_squares_type_title" />
-
-        <Spinner
-            android:id="@+id/type_spinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="5dp"
-            android:layout_marginTop="10dp"
             android:text="@string/dialog_edit_squares_item_name_title" />
 
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <EditText
-                android:id="@+id/name_text"
+            <com.matthewn4444.wonderfestbingo.ui.InstantAutoCompleteTextView
+                android:id="@+id/dropdown_name_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="@dimen/edit_dialog_button_horizontal_padding"
                 android:layout_marginStart="@dimen/edit_dialog_button_horizontal_padding"
-                android:imeOptions="actionNext"
-                android:inputType="text"
+                android:inputType="textNoSuggestions"
                 android:maxLines="1"
                 android:paddingEnd="22dp" />
 

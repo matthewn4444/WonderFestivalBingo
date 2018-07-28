@@ -9,67 +9,32 @@ import com.squareup.picasso.Picasso;
 import com.squareup.picasso.RequestCreator;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
 
 public class BingoSquareData implements Serializable {
-    private static String TAG = "BingoSquareData";
+    private static final String TAG = "BingoSquareData";
 
-    public static String DefaultName = "Figure";
+    public static final String FreeSpace = "Free Space";
+    public static final String Unset = "Unset";
 
-    public enum TYPE {
-        NENDOROID("Nendoroid"),
-        FIGMA("Figma"),
-        PROTOTYPE("Prototype"),
-        FREE_SPACE("Free Space"),
-        PAINTED_PROTOTYPE("Painted Prototype"),
-        COLOR_VARIANT("Color Variant"),
-        UNSET("Unset");
-
-        public static TYPE from(String name) {
-            for (TYPE type: TYPE.values()) {
-                if (type.text.equals(name)) {
-                    return type;
-                }
-            }
-            return null;
-        }
-
-        TYPE(String text) {
-            this.text = text;
-        }
-
-        public String text() {
-            return text;
-        }
-
-        String text;
-    }
-
-    public static String[] Options = {
-            TYPE.NENDOROID.text, TYPE.FIGMA.text, TYPE.PROTOTYPE.text, TYPE.PAINTED_PROTOTYPE.text,
-            TYPE.COLOR_VARIANT.text
+    public static final String[] DefaultItemNames = {
+            "Anything", "Nendoroid", "Figma", "Prototype", "Painted Prototype", "Color Variant"
     };
+    public static final List<String> DefaultItemNamesList = Arrays.asList(DefaultItemNames);
 
-    private TYPE mType;
-    private String mName = DefaultName;
+    private final long mId;
+    private String mName;
     private String mCroppedImageUrl;
     private String mOriginalImageUrl;
     private boolean mStamped;
 
     private boolean mImageInvalided;
 
-    public BingoSquareData() {
-    }
-
-    public BingoSquareData(TYPE type, String name, Uri imageUrl) {
+    public BingoSquareData(int id, String name, Uri imageUrl) {
+        mId = id;
         mCroppedImageUrl = imageUrl != null ? imageUrl.toString() : null;
         setName(name);
-        mType = type;
-    }
-
-    public void setType(TYPE type) {
-        if (mType != TYPE.FREE_SPACE) {
-            mType = type;
-        }
     }
 
     public void setImageUri(Uri url) {
@@ -81,13 +46,32 @@ public class BingoSquareData implements Serializable {
     }
 
     public void setName(String name) {
-        if (name != null && !name.trim().isEmpty()) {
+        if (name == null || name.trim().isEmpty()) {
+            mName = null;
+            mStamped = false;
+        } else {
             mName = name;
         }
     }
 
-    public void setStampedState(boolean stamped) {
-        mStamped = stamped;
+    public boolean isUnique() {
+        return mName != null && mName.equals(FreeSpace);
+    }
+
+    public boolean setStampedState(boolean stamped) {
+        if (!isUnique()) {
+            mStamped = stamped;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean toggleStamped() {
+        if (!isUnique() && mName != null) {
+            mStamped = !mStamped;
+            return true;
+        }
+        return false;
     }
 
     public void loadImageInto(ImageView view) {
@@ -98,7 +82,17 @@ public class BingoSquareData implements Serializable {
                 mImageInvalided = false;
             }
             creator.into(view);
+        } else {
+            view.setImageDrawable(null);
         }
+    }
+
+    public long getId() {
+        return mId;
+    }
+
+    public boolean isStamped() {
+        return mStamped && mName != null;
     }
 
     public Uri getCroppedImageUri() {
@@ -109,12 +103,12 @@ public class BingoSquareData implements Serializable {
         return mOriginalImageUrl != null ? Uri.parse(mOriginalImageUrl) : null;
     }
 
-    public TYPE getType() {
-        return mType;
-    }
-
     public String getName() {
         return mName;
+    }
+
+    public String getDisplayName() {
+        return mName != null ? mName : Unset;
     }
 
     public void invalidateImage() {

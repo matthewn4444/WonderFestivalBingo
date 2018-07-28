@@ -16,11 +16,11 @@ import android.view.View;
 import android.webkit.URLUtil;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.matthewn4444.wonderfestbingo.ui.BingoListAdapter;
+import com.matthewn4444.wonderfestbingo.ui.InstantAutoCompleteTextView;
 import com.squareup.picasso.MemoryPolicy;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.RequestCreator;
@@ -30,6 +30,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 
 public class EditDialog {
@@ -40,17 +41,16 @@ public class EditDialog {
     private static final float DISABLED_BUTTON_ALPHA = 0.4f;
 
     public interface OnEditDialogCompleteListener {
-        public void onEditDialogComplete(int id, BingoSquareData data);
+        public void onEditDialogComplete(long id, BingoSquareData data);
     }
 
     private final Activity mActivity;
     private final ClipboardManager mClipboardManager;
 
     private AlertDialog mDialog;
-    private EditText mNameText;
-    private Spinner mTypeSpinner;
+    private InstantAutoCompleteTextView mNameText;
     private ImageView mPreviewView;
-    private int mCurrentSquareId;
+    private long mCurrentSquareId;
     private BingoSquareData mCurrentData;
     private Uri mLastCroppedImageUri;
     private Uri mLastOriginalImageUri;
@@ -75,8 +75,6 @@ public class EditDialog {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
                     if (mCurrentData != null) {
-                        mCurrentData.setType(BingoSquareData.TYPE.from(
-                                mTypeSpinner.getSelectedItem().toString()));
                         mCurrentData.setName(mNameText.getText().toString().trim());
                         mCurrentData.setImageUri(mLastCroppedImageUri);
                         mCurrentData.setOriginalImageUri(mLastOriginalImageUri);
@@ -196,8 +194,8 @@ public class EditDialog {
         mListener = listener;
     }
 
-    public void show(int squareId, BingoSquareData data) {
-        if (squareId <= INVALID_ID) {
+    public void show(BingoSquareData data, List<String> names) {
+        if (data.getId() <= INVALID_ID) {
             toast("Cannot show because invalid square");
             return;
         }
@@ -214,16 +212,14 @@ public class EditDialog {
                     .create();
 
             mPreviewView = dialogView.findViewById(R.id.preview);
-            mNameText = dialogView.findViewById(R.id.name_text);
+            mNameText = dialogView.findViewById(R.id.dropdown_name_text);
             mTypeContainer = dialogView.findViewById(R.id.type_container);
             mPasteButton = dialogView.findViewById(R.id.paste_and_crop_button);
             mOpenButton = dialogView.findViewById(R.id.open_and_crop_button);
             mDeleteImageButton = dialogView.findViewById(R.id.delete_image_button);
 
-            // Set up the spinner
-            mTypeSpinner = dialogView.findViewById(R.id.type_spinner);
-            mTypeSpinner.setAdapter(new ArrayAdapter<String>(mActivity,
-                    R.layout.simple_option_item_layout, BingoSquareData.Options));
+            // Setup name field
+            mNameText.setThreshold(0);
 
             // Setup the button listeners
             mPasteButton.setOnClickListener(new View.OnClickListener() {
@@ -321,26 +317,19 @@ public class EditDialog {
         reset();
 
         // Set current data
-        mCurrentSquareId = squareId;
+        mCurrentSquareId = data.getId();
         mCurrentData = data;
         mLastCroppedImageUri = mCurrentData.getCroppedImageUri();
         mLastOriginalImageUri = mCurrentData.getOriginalImageUri();
         mDialog.setTitle(mActivity.getString(R.string.dialog_edit_squares_title));
 
         // Populate existing values to dialog
+        mNameText.setAdapter(new ArrayAdapter<>(mActivity,
+                android.R.layout.simple_dropdown_item_1line, names));
         mNameText.setText(mCurrentData.getName());
-        if (mCurrentData.getType() == BingoSquareData.TYPE.FREE_SPACE) {
+        if (mCurrentSquareId == BingoListAdapter.FREE_SPACE_INDEX) {
             mTypeContainer.setVisibility(View.GONE);
             mDialog.setTitle(mActivity.getString(R.string.dialog_edit_squares_free_space_title));
-        } else if (mCurrentData.getType() != BingoSquareData.TYPE.UNSET) {
-            int i = 0;
-            for (String type : BingoSquareData.Options) {
-                if (type.equals(mCurrentData.getType().text)) {
-                    mTypeSpinner.setSelection(i);
-                    break;
-                }
-                i++;
-            }
         }
         if (mLastCroppedImageUri != null) {
             loadPreview(false);
@@ -376,7 +365,6 @@ public class EditDialog {
         mOpenButton.setEnabled(true);
         mPasteButton.setEnabled(true);
         mNameText.setText(null);
-        mTypeSpinner.setSelection(0);
         mPreviewView.setImageDrawable(null);
         mPreviewView.setClickable(true);
         mTypeContainer.setVisibility(View.VISIBLE);

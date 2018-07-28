@@ -2,6 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <item android:id="@+id/shuffle"
+        android:icon="@drawable/ic_shuffle_white_24dp"
+        android:title="@string/menu_shuffle"
+        android:orderInCategory="100"
+        app:showAsAction="ifRoom"/>
+
     <item android:id="@+id/exit"
         android:icon="@drawable/ic_close_white_24dp"
         android:title="@string/menu_close"

@@ -8,6 +8,7 @@
         <item name="colorAccent">@color/colorAccent</item>
         <item name="colorButtonNormal">@color/colorAccent</item>
         <item name="colorControlNormal">@color/colorAccent</item>
+        <item name="selectableItemBackgroundWhite">@drawable/button_ripple_white</item>
     </style>
 
 </resources>

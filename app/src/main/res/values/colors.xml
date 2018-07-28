@@ -5,4 +5,6 @@
     <color name="colorAccent">#FF4081</color>
     <color name="bingo_dark_text">@android:color/darker_gray</color>
     <color name="bingo_empty_bg">#f4f4f4</color>
+    <color name="button_ripple_bg_color">#66FFFFFF</color>
+    <color name="button_ripple_color">#DDFFFFFF</color>
 </resources>

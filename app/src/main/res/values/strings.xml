@@ -3,8 +3,9 @@
 
     <string name="menu_edit">Edit</string>
     <string name="menu_close">Close</string>
+    <string name="menu_shuffle">Shuffle</string>
 
-    <string name="action_mode_edit">Choose a square to modify</string>
+    <string name="action_mode_edit">Modify a square</string>
 
     <string name="dialog_edit_squares_title">Modify Square</string>
     <string name="dialog_edit_squares_free_space_title">Modify Free Space</string>
@@ -13,9 +14,10 @@
     <string name="dialog_edit_squares_image_title">Image Source/Url</string>
     <string name="dialog_edit_squares_download_title">Downloading image</string>
 
-    <string name="dialog_edit_squares_image_paste_url_button_text">Paste image url and crop</string>
+    <string name="dialog_edit_squares_image_paste_url_button_text">Paste image or MFC url and crop</string>
     <string name="dialog_edit_squares_image_open_image_button_text">Open image and crop</string>
     <string name="dialog_edit_squares_image_delete_button_text">Delete Image</string>
 
     <string name="message_request_storage_permission_explanation">To use images in this app, you need to allow read/write access to device.</string>
+    <string name="message_delete_data_unparsable_data">Data stored is corrupted, would you like to delete it?</string>
 </resources>
