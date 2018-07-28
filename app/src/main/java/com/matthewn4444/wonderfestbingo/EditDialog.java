@@ -11,12 +11,15 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.webkit.URLUtil;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.matthewn4444.wonderfestbingo.ui.BingoListAdapter;
@@ -246,6 +249,16 @@ public class EditDialog {
 
             // Setup name field
             mNameText.setThreshold(0);
+            mNameText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                    if (actionId == EditorInfo.IME_ACTION_DONE) {
+                        mDialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+                        return true;
+                    }
+                    return false;
+                }
+            });
 
             // Setup the button listeners
             mPasteButton.setOnClickListener(new View.OnClickListener() {
@@ -391,6 +404,7 @@ public class EditDialog {
         mOpenButton.setEnabled(true);
         mPasteButton.setEnabled(true);
         mNameText.setText(null);
+        mNameText.clearFocus();
         mPreviewView.setImageDrawable(null);
         mPreviewView.setClickable(true);
         mTypeContainer.setVisibility(View.VISIBLE);

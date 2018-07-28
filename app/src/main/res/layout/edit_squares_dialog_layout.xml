@@ -30,7 +30,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="@dimen/edit_dialog_button_horizontal_padding"
                 android:layout_marginStart="@dimen/edit_dialog_button_horizontal_padding"
-                android:inputType="textNoSuggestions"
+                android:inputType="textCapWords"
                 android:maxLines="1"
                 android:paddingEnd="22dp" />
 

@@ -28,6 +28,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.view.animation.Interpolator;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,22 +45,31 @@ import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 
 public class MainActivity extends BaseActivity implements RecyclerViewAdapterListener,
         ActionMode.Callback, EditDialog.OnEditDialogCompleteListener {
     private static final String TAG = "MainActivity";
     private static final String SAVE_FILE = "savedata.dat";
-    private static final float SOUND_EFFECT_VOLUME = 0.3f;
+    private static final float SOUND_EFFECT_VOLUME_STAMP = 0.3f;
+    private static final float SOUND_EFFECT_VOLUME_BINGO = 0.8f;
+    private static final int[] BINGO_SOUNDS = {
+            R.raw.bingo1, R.raw.bingo2, R.raw.bingo3
+    };
+    private static final Interpolator BINGO_INTERPOLATOR =
+            PathInterpolatorCompat.create(0.3f, 0.6f, 0.9f, 0.2f);
 
     private static final int LOAD_SUCCESS = 1;
     private static final int LOAD_ERROR = 2;
     private static final int LOAD_ERROR_MAY_DELETE = 3;
 
     private final Object mFileLock = new Object();
+    private final Random mRandom = new Random();
 
     private RecyclerView mBingoView;
     private int mBingoCount;
@@ -118,7 +128,6 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                     mBingoImgHeight = mBingoImage.getHeight();
                     mBingoImage.setTranslationY(-mBingoImgHeight);
                     mBingoImage.setVisibility(View.GONE);
-                    log("mBingoImgHeight", mBingoImgHeight);
                 }
             });
         }
@@ -236,7 +245,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                             mBingoAnimator = null;
                         }
                     });
-                    mBingoAnimator.setInterpolator(PathInterpolatorCompat.create(0.2f, 0.5f, 0.4f, 0.5f));
+                    mBingoAnimator.setInterpolator(BINGO_INTERPOLATOR);
                     mBingoAnimator.setDuration(3000);
                     mBingoAnimator.start();
                     playBingoSound();
@@ -311,17 +320,17 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     }
 
     private void playStampSound() {
-        playSoundEffect(R.raw.stamp);
+        playSoundEffect(R.raw.stamp, SOUND_EFFECT_VOLUME_STAMP);
     }
 
     private void playBingoSound() {
-        playSoundEffect(R.raw.stamp);
-//        playSoundEffect(R.raw.bingo);
+        int i = mRandom.nextInt(BINGO_SOUNDS.length);
+        playSoundEffect(BINGO_SOUNDS[i], SOUND_EFFECT_VOLUME_BINGO);
     }
 
-    private void playSoundEffect(@RawRes int id) {
+    private void playSoundEffect(@RawRes int id, float volume) {
         MediaPlayer mp = MediaPlayer.create(getApplicationContext(), id);
-        mp.setVolume(SOUND_EFFECT_VOLUME, SOUND_EFFECT_VOLUME);
+        mp.setVolume(volume, volume);
         mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mp) {
@@ -446,22 +455,25 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
 
     private void addNameToList(@NonNull String name) {
         int n = 1;
-        if (mNamesMap.containsKey(name)) {
-            n = mNamesMap.get(name) + 1;
+        String lower = name.toLowerCase();
+        if (mNamesMap.containsKey(lower)) {
+            n = mNamesMap.get(lower) + 1;
         } else {
             mUniqueNamesList.add(name);
+            Collections.sort(mUniqueNamesList);
         }
-        mNamesMap.put(name, n);
+        mNamesMap.put(lower, n);
     }
 
     private void removeNameFromList(@NonNull String name) {
-        if (mNamesMap.containsKey(name)) {
-            int n = mNamesMap.get(name);
+        String lower = name.toLowerCase();
+        if (mNamesMap.containsKey(lower)) {
+            int n = mNamesMap.get(lower);
             if (n <= 1) {
-                mNamesMap.remove(name);
+                mNamesMap.remove(lower);
                 mUniqueNamesList.remove(name);
             } else {
-                mNamesMap.put(name, n - 1);
+                mNamesMap.put(lower, n - 1);
             }
         }
     }
