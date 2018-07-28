@@ -1,7 +1,9 @@
 <resources>
-    <string name="app_name">Wonder Festival Bingo</string>
+    <string name="app_name">WonFes Bingo</string>
 
     <string name="menu_edit">Edit</string>
+    <string name="menu_about">About</string>
+    <string name="menu_share">Share</string>
     <string name="menu_close">Close</string>
     <string name="menu_shuffle">Shuffle</string>
 
@@ -13,11 +15,34 @@
     <string name="dialog_edit_squares_item_name_title">Item Name</string>
     <string name="dialog_edit_squares_image_title">Image Source/Url</string>
     <string name="dialog_edit_squares_download_title">Downloading image</string>
+    <string name="dialog_button_close_label">Close</string>
 
     <string name="dialog_edit_squares_image_paste_url_button_text">Paste image or MFC url and crop</string>
     <string name="dialog_edit_squares_image_open_image_button_text">Open image and crop</string>
     <string name="dialog_edit_squares_image_delete_button_text">Delete Image</string>
 
+    <string name="dialog_about_title">About</string>
+    <string name="dialog_about_main_message">This application was made for fun for Wonder Festival
+        by creating your own bingo card. I hope you enjoy using it. You can add a custom image with
+        an image URL or myfigurecollection supported link and label it with your hopes and dreams.\n\n
+        <i>I do not own any of the images or sounds used in this app, Wonder Festival (logo) or
+            myfigurecollection as this app was made for fun.\n
+        Licensed with MIT license (view github link).</i>\n\n
+        <b>Thanks to the libraries used</b>\n
+        &#9679;\u0020<a href="http://square.github.io/picasso/">Picasso</a>\n
+        &#9679;\u0020<a href="https://github.com/Yalantis/uCrop">uCrop</a>\n\n
+        <b>Creators:</b>\n
+        &#9679; Matthew Ng (programming &amp; planning)\n
+        \u0020\u0020\u0020MFC:\u0020<a href='https://myfigurecollection.net/profile/matthewn4444'>matthewn4444 profile</a>\n
+        \u0020\u0020\u0020Github:\u0020<a href='https://github.com/matthewn4444/WonderFestivalBingo'>WonderFestivalBingo</a>\n
+        \u0020\u0020\u0020Email:\u0020<a href='mailto:matthewn4444@gmail.com'>matthewn4444@gmail.com</a>\n\n
+        &#9679; Kaze Chen (assets &amp; planning)\n
+        \u0020\u0020\u0020MFC:\u0020<a href='https://myfigurecollection.net/profile/matthewn4444'>kazeari profile</a>\n
+        \u0020\u0020\u0020Github:\u0020<a href='https://github.com/kazeari'>https://github.com/kazeari</a>\n
+        \u0020\u0020\u0020Email:\u0020<a href='mailto:kazeari@gmail.com'>kazeari@gmail.com</a>\n\n
+    </string>
+
     <string name="message_request_storage_permission_explanation">To use images in this app, you need to allow read/write access to device.</string>
     <string name="message_delete_data_unparsable_data">Data stored is corrupted, would you like to delete it?</string>
+    <string name="message_bingo_animation_runninng">Wait till bingo animation finishes before attempting</string>
 </resources>

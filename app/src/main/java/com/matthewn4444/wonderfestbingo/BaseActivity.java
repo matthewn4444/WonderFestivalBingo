@@ -11,20 +11,21 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 public abstract class BaseActivity extends AppCompatActivity {
-    protected static final int PERMISSIONS_REQUEST_READ_STORAGE = 1;
+    protected static final int PERMISSIONS_REQUEST_READ_WRITE_STORAGE = 1;
 
     protected static void requestStoragePermissions(Activity activity) {
         ActivityCompat.requestPermissions(activity,
-                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                PERMISSIONS_REQUEST_READ_STORAGE);
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                PERMISSIONS_REQUEST_READ_WRITE_STORAGE);
     }
 
     protected boolean verifyStoragePermissionsOrShowDialogs() {
         if (!hasStoragePermissions()) {
 
             // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.READ_EXTERNAL_STORAGE)) {
+            if (shouldShowRequestPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    || shouldShowRequestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                 new AlertDialog.Builder(this)
                         .setMessage(R.string.message_request_storage_permission_explanation)
                         .setNeutralButton(android.R.string.ok, new DialogInterface.OnClickListener() {
@@ -32,7 +33,7 @@ public abstract class BaseActivity extends AppCompatActivity {
                             public void onClick(DialogInterface dialog, int which) {
                                 ActivityCompat.requestPermissions(BaseActivity.this,
                                         new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                                        PERMISSIONS_REQUEST_READ_STORAGE);
+                                        PERMISSIONS_REQUEST_READ_WRITE_STORAGE);
                             }
                         })
                         .show();
@@ -45,7 +46,17 @@ public abstract class BaseActivity extends AppCompatActivity {
     }
 
     protected boolean hasStoragePermissions() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        return checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                && checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+    }
+
+    protected boolean checkPermission(String permission) {
+        return ContextCompat.checkSelfPermission(this, permission)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    protected boolean shouldShowRequestPermission(String permission) {
+        return ActivityCompat.shouldShowRequestPermissionRationale(this, permission);
     }
 
     protected static void log(Object... txt) {

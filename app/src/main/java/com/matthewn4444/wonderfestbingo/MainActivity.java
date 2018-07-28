@@ -4,30 +4,42 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.StrictMode;
+import android.provider.MediaStore;
+import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.RawRes;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.animation.PathInterpolatorCompat;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.method.LinkMovementMethod;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.HapticFeedbackConstants;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -56,17 +68,21 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         ActionMode.Callback, EditDialog.OnEditDialogCompleteListener {
     private static final String TAG = "MainActivity";
     private static final String SAVE_FILE = "savedata.dat";
+    private static final String SNAP_SHOT_NAME = "WonderFest-bingo-screenshot";
     private static final float SOUND_EFFECT_VOLUME_STAMP = 0.3f;
     private static final float SOUND_EFFECT_VOLUME_BINGO = 0.8f;
     private static final int[] BINGO_SOUNDS = {
             R.raw.bingo1, R.raw.bingo2, R.raw.bingo3
     };
+    private static final Interpolator STATUS_INTERPOLATOR = new AccelerateDecelerateInterpolator();
     private static final Interpolator BINGO_INTERPOLATOR =
             PathInterpolatorCompat.create(0.3f, 0.6f, 0.9f, 0.2f);
 
     private static final int LOAD_SUCCESS = 1;
     private static final int LOAD_ERROR = 2;
     private static final int LOAD_ERROR_MAY_DELETE = 3;
+
+    public static final int RESULT_CODE_SHARE_IMAGE = 1;
 
     private final Object mFileLock = new Object();
     private final Random mRandom = new Random();
@@ -75,21 +91,38 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     private int mBingoCount;
     private View mBingoImage;
     private int mBingoImgHeight;
+    private int mDisplayWidth;
     private int mDisplayHeight;
+    private Uri mSharedImageUri;
     private BingoListAdapter mAdapter;
     private ValueAnimator mBingoAnimator;
     private RecyclerView.LayoutManager mLayoutManager;
     private ActionMode mActionMode;
     private EditDialog mDialog;
+    private Dialog mAboutDialog;
     private String mNameDataBeforeDialog;
+    private ValueAnimator mStatusBarAnimator;
 
     private List<String> mUniqueNamesList = new ArrayList<>(BingoListAdapter.MAX_ITEMS);
     private Map<String, Integer> mNamesMap = new HashMap<>(BingoListAdapter.MAX_ITEMS);
+
+    public static Bitmap loadBitmapFromView(View v, int width, int height) {
+        Bitmap b = Bitmap.createBitmap( width, height, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        c.drawColor(Color.WHITE);
+        v.layout(v.getLeft(), v.getTop(), v.getRight(), v.getBottom());
+        v.draw(c);
+        return b;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Allow security to share bitmaps
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
 
         TextView subtitleText = findViewById(R.id.year_season_text);
         mBingoView = findViewById(R.id.bingo);
@@ -99,6 +132,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
 
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        mDisplayWidth = displayMetrics.widthPixels;
         mDisplayHeight = displayMetrics.heightPixels;
 
         // Setup title font
@@ -168,13 +202,63 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                     break;
                 }
                 return true;
+            case R.id.about:
+                if (mAboutDialog == null) {
+                    mAboutDialog = new AlertDialog.Builder(this)
+                            .setMessage(R.string.dialog_about_main_message)
+                            .setTitle(R.string.dialog_about_title)
+                            .setNeutralButton(R.string.dialog_button_close_label, null)
+                            .create();
+                }
+                mAboutDialog.show();
+                TextView tv = mAboutDialog.findViewById(android.R.id.message);
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                        getResources().getDimension(R.dimen.about_dialog_font_size));
+                tv.setMovementMethod(LinkMovementMethod.getInstance());
+                return true;
+            case R.id.share:
+                if (!verifyStoragePermissionsOrShowDialogs()) {
+                    break;
+                }
+                if (mBingoAnimator != null && mBingoAnimator.isRunning()) {
+                    Toast.makeText(this, R.string.message_bingo_animation_runninng,
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+
+                AsyncTask.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Get the screenshot as a bitmap and insert into mediastorage, delete later
+                        int bottom = mBingoView.getTop() + mBingoView.getHeight()
+                                + ((View) mBingoView.getParent()).getPaddingTop();
+                        Bitmap bitmap = loadBitmapFromView(findViewById(R.id.main_layout),
+                                mDisplayWidth, bottom);
+                        mSharedImageUri = Uri.parse(MediaStore.Images.Media.insertImage(
+                                getContentResolver(), bitmap, SNAP_SHOT_NAME, null));
+
+                        // Share the image
+                        Intent intent = new Intent(Intent.ACTION_SEND);
+                        intent.putExtra(Intent.EXTRA_STREAM, mSharedImageUri);
+                        intent.setType("image/jpeg");
+                        startActivityForResult(Intent.createChooser(intent, "Share bingo via"),
+                                RESULT_CODE_SHARE_IMAGE);
+                    }
+                });
+                return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (!mDialog.handleActivityResult(requestCode, resultCode, data)) {
+        if (requestCode == RESULT_CODE_SHARE_IMAGE) {
+            if (mSharedImageUri != null) {
+                getContentResolver().delete(mSharedImageUri, null, null);
+            } else {
+                Log.w(TAG, "Shared image returned with no valid member");
+            }
+        } else if (!mDialog.handleActivityResult(requestCode, resultCode, data)) {
             if (resultCode == UCrop.RESULT_ERROR) {
                 final Throwable cropError = UCrop.getError(data);
                 if (cropError != null) {
@@ -182,6 +266,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 }
             }
         }
+        mSharedImageUri = null;
     }
 
     @Override
@@ -274,6 +359,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     @Override
     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
         getMenuInflater().inflate(R.menu.action_menu, menu);
+        animateStatusBarColor(android.R.color.black);
         return true;
     }
 
@@ -297,9 +383,26 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         return false;
     }
 
+    private void animateStatusBarColor(@ColorRes int id) {
+        if (mStatusBarAnimator != null) {
+            mStatusBarAnimator.cancel();
+        }
+        mStatusBarAnimator = ValueAnimator.ofArgb(getWindow().getStatusBarColor(),
+                ContextCompat.getColor(this, id));
+        mStatusBarAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                getWindow().setStatusBarColor((int) animation.getAnimatedValue());
+            }
+        });
+        mStatusBarAnimator.setInterpolator(STATUS_INTERPOLATOR);
+        mStatusBarAnimator.start();
+    }
+
     @Override
     public void onDestroyActionMode(ActionMode mode) {
         mActionMode = null;
+        animateStatusBarColor(R.color.colorPrimaryDark);
     }
 
     private void initAdapter() {
@@ -463,6 +566,13 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
             Collections.sort(mUniqueNamesList);
         }
         mNamesMap.put(lower, n);
+    }
+
+    private int getRelativeTop(View myView) {
+        if (myView.getParent() == myView.getRootView())
+            return myView.getTop();
+        else
+            return myView.getTop() + getRelativeTop((View) myView.getParent());
     }
 
     private void removeNameFromList(@NonNull String name) {

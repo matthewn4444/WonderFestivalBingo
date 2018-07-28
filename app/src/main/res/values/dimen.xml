@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="bingo_divider_size">1dp</dimen>
+    <dimen name="about_dialog_font_size">14sp</dimen>
 
     <dimen name="edit_dialog_spinner_horizontal_padding">15dp</dimen>
     <dimen name="edit_dialog_button_horizontal_padding">10dp</dimen>
