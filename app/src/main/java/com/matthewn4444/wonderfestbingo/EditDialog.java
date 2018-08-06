@@ -399,15 +399,17 @@ public class EditDialog {
         if (mImageDownloadDialog != null) {
             mImageDownloadDialog.hide();
         }
-        mDeleteImageButton.setEnabled(false);
-        mDeleteImageButton.setAlpha(DISABLED_BUTTON_ALPHA);
-        mOpenButton.setEnabled(true);
-        mPasteButton.setEnabled(true);
-        mNameText.setText(null);
-        mNameText.clearFocus();
-        mPreviewView.setImageDrawable(null);
-        mPreviewView.setClickable(true);
-        mTypeContainer.setVisibility(View.VISIBLE);
+        if (mDialog != null) {
+            mDeleteImageButton.setEnabled(false);
+            mDeleteImageButton.setAlpha(DISABLED_BUTTON_ALPHA);
+            mOpenButton.setEnabled(true);
+            mPasteButton.setEnabled(true);
+            mNameText.setText(null);
+            mNameText.clearFocus();
+            mPreviewView.setImageDrawable(null);
+            mPreviewView.setClickable(true);
+            mTypeContainer.setVisibility(View.VISIBLE);
+        }
     }
 
     private void toast(String text) {
