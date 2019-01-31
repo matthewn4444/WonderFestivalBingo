@@ -5,6 +5,7 @@ import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
 import android.text.Html;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,10 +21,13 @@ import java.util.List;
 
 public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, BingoSquareData> {
 
+    public static final int DEFAULT_FONT_SIZE = 14;
     public static final int ROWS = 5;
     public static final int COLUMNS = 5;
     public static final int MAX_ITEMS = ROWS * COLUMNS;
     public static final int FREE_SPACE_INDEX = ROWS / 2 * COLUMNS + COLUMNS / 2;
+
+    private int mFontSize;
 
     public BingoListAdapter() {
         super(new ArrayList<BingoSquareData>(MAX_ITEMS));
@@ -69,6 +73,11 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
 
     public void swap(int first, int second) {
         Collections.swap(mEntries, first, second);
+    }
+
+    public void setFontSize(int spValue) {
+        mFontSize = spValue;
+        notifyDataSetChanged();
     }
 
     public int getBingoCount() {
@@ -170,8 +179,8 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         }
         entry.loadImageInto(holder.imageView);
         holder.nameView.setText(Html.fromHtml(entry.getDisplayName()));
+        holder.nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, mFontSize);
         holder.stampView.setVisibility(entry.isStamped() ? View.VISIBLE : View.GONE);
-
     }
 
     protected static void log(Object... txt) {

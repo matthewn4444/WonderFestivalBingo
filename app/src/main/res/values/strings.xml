@@ -17,6 +17,9 @@
     <string name="dialog_edit_squares_download_title">Downloading image</string>
     <string name="dialog_button_close_label">Close</string>
 
+    <string name="settings_title_font_size_slider">Adjust Font Size</string>
+    <string name="settings_key_font_size_slider">settings.key.font.size.slider</string>
+
     <string name="dialog_edit_squares_image_paste_url_button_text">Paste image or MFC url and crop</string>
     <string name="dialog_edit_squares_image_open_image_button_text">Open image and crop</string>
     <string name="dialog_edit_squares_image_delete_button_text">Delete Image</string>

@@ -8,6 +8,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
@@ -20,6 +21,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
@@ -41,6 +43,7 @@ import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Interpolator;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -102,6 +105,11 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     private Dialog mAboutDialog;
     private String mNameDataBeforeDialog;
     private ValueAnimator mStatusBarAnimator;
+    private SeekBar mFontSizeSeekBar;
+    private View mSettingsArea;
+    private int mMinBingoFontSize;
+    private String mFontSizeKey;
+    private SharedPreferences mPrefs;
 
     private List<String> mUniqueNamesList = new ArrayList<>(BingoListAdapter.MAX_ITEMS);
     private Map<String, Integer> mNamesMap = new HashMap<>(BingoListAdapter.MAX_ITEMS);
@@ -115,10 +123,21 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         return b;
     }
 
+    private final AnimatorListenerAdapter mSettingsEndListener = new AnimatorListenerAdapter() {
+        @Override
+        public void onAnimationEnd(Animator animation) {
+            super.onAnimationEnd(animation);
+            mSettingsArea.setVisibility(View.GONE);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        mMinBingoFontSize = getResources().getInteger(R.integer.bingo_square_min_font_size);
+        mFontSizeKey = getString(R.string.settings_key_font_size_slider);
 
         // Allow security to share bitmaps
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
@@ -127,6 +146,8 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         TextView subtitleText = findViewById(R.id.year_season_text);
         mBingoView = findViewById(R.id.bingo);
         mBingoImage = findViewById(R.id.bingo_image);
+        mFontSizeSeekBar = findViewById(R.id.font_size_slider);
+        mSettingsArea = findViewById(R.id.settings_area);
         mDialog = new EditDialog(this);
         mDialog.setOnEditDialogCompleteListener(this);
 
@@ -143,7 +164,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         Calendar calendar = Calendar.getInstance();
         subtitleText.setText(String.format(Locale.getDefault(), "%d [%s]",
                 calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH) > 4 ? "Summer" : "Winter"));
+                isSummer() ? "Summer" : "Winter"));
 
         // Setup bingo layout
         mLayoutManager = new GridLayoutManager(this, 5);
@@ -165,6 +186,31 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 }
             });
         }
+
+        // Setup the slider
+        mFontSizeSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private int mOriginalFontSize;
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    mAdapter.setFontSize(progress + mMinBingoFontSize);
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                mOriginalFontSize = seekBar.getProgress();
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int progress = seekBar.getProgress();
+                if (progress != mOriginalFontSize) {
+                    mPrefs.edit().putInt(mFontSizeKey, progress).apply();
+                }
+            }
+        });
 
         if (verifyStoragePermissionsOrShowDialogs()) {
             loadData();
@@ -364,7 +410,16 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     }
 
     @Override
+    public void onSupportActionModeFinished(@NonNull ActionMode mode) {
+        super.onSupportActionModeFinished(mode);
+        mSettingsArea.animate().alpha(0).setListener(mSettingsEndListener).start();
+    }
+
+    @Override
     public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+        mSettingsArea.setVisibility(View.VISIBLE);
+        mSettingsArea.setAlpha(0);
+        mSettingsArea.animate().alpha(1f).setListener(null).start();
         return false;
     }
 
@@ -381,6 +436,19 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 return true;
         }
         return false;
+    }
+
+    public void clickLogo(View view) {
+        String url = String.format(Locale.getDefault(),
+                "https://twitter.com/hashtag/wf%d%c", Calendar.getInstance().get(Calendar.YEAR),
+                isSummer() ? 's' : 'w');
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setData(Uri.parse(url));
+        startActivity(i);
+    }
+
+    private boolean isSummer() {
+        return Calendar.getInstance().get(Calendar.MONTH) > 4;
     }
 
     private void animateStatusBarColor(@ColorRes int id) {
@@ -420,6 +488,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         mAdapter.setAdapterListener(MainActivity.this);
         mBingoView.setAdapter(mAdapter);
         mBingoCount = mAdapter.getBingoCount();
+        setSavedFontSize();
     }
 
     private void playStampSound() {
@@ -470,6 +539,13 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 }
             }
         });
+    }
+
+    private void setSavedFontSize() {
+        int fontSizeDiff = mPrefs.getInt(mFontSizeKey,
+                BingoListAdapter.DEFAULT_FONT_SIZE - mMinBingoFontSize);
+        mFontSizeSeekBar.setProgress(fontSizeDiff);
+        mAdapter.setFontSize(fontSizeDiff + mMinBingoFontSize);
     }
 
     private void loadData() {
@@ -547,6 +623,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                                 return;
                             default:
                                 mAdapter = new BingoListAdapter(dataList);
+                                setSavedFontSize();
                                 break;
                         }
                         initAdapter();
