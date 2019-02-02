@@ -22,7 +22,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.matthewn4444.wonderfestbingo.ui.BingoListAdapter;
+import com.matthewn4444.wonderfestbingo.ui.BingoCardAdapter;
 import com.matthewn4444.wonderfestbingo.ui.InstantAutoCompleteTextView;
 import com.squareup.picasso.MemoryPolicy;
 import com.squareup.picasso.Picasso;
@@ -54,6 +54,7 @@ public class EditDialog {
     private InstantAutoCompleteTextView mNameText;
     private ImageView mPreviewView;
     private long mCurrentSquareId;
+    private String mCurrentSquarePrefix;
     private BingoSquareData mCurrentData;
     private Uri mLastCroppedImageUri;
     private Uri mLastOriginalImageUri;
@@ -283,9 +284,10 @@ public class EditDialog {
                         toast("Your clipboard is not a valid url");
                         return;
                     }
+                    String prefix = mCurrentSquarePrefix != null ? "_" + mCurrentSquarePrefix : "";
                     mImageDownloadTask = new DownloadImageTask(mActivity, mActivity.getFilesDir());
                     mImageDownloadTask.setOnDownloadImageFinishedListener(mImageDownloadListener);
-                    mImageDownloadTask.execute(url, mCurrentSquareId + ".jpg.tmp");
+                    mImageDownloadTask.execute(url, mCurrentSquareId + prefix + ".jpg.tmp");
 
                     mImageDownloadDialog = new ProgressDialog(mActivity);
                     mImageDownloadDialog.setTitle(R.string.dialog_edit_squares_download_title);
@@ -357,6 +359,7 @@ public class EditDialog {
 
         // Set current data
         mCurrentSquareId = data.getId();
+        mCurrentSquarePrefix = data.getPrefix();
         mCurrentData = data;
         mLastCroppedImageUri = mCurrentData.getCroppedImageUri();
         mLastOriginalImageUri = mCurrentData.getOriginalImageUri();
@@ -366,7 +369,7 @@ public class EditDialog {
         mNameText.setAdapter(new ArrayAdapter<>(mActivity,
                 android.R.layout.simple_dropdown_item_1line, names));
         mNameText.setText(mCurrentData.getName());
-        if (mCurrentSquareId == BingoListAdapter.FREE_SPACE_INDEX) {
+        if (mCurrentSquareId == BingoCardAdapter.FREE_SPACE_INDEX) {
             mTypeContainer.setVisibility(View.GONE);
             mDialog.setTitle(mActivity.getString(R.string.dialog_edit_squares_free_space_title));
         }
@@ -441,11 +444,13 @@ public class EditDialog {
     }
 
     private File getCropFilePath(long id, boolean temp) {
-        return new File(mActivity.getFilesDir(),id + "_crop.jpg" + (temp ? ".tmp" : ""));
+        String prefix = mCurrentSquarePrefix != null ? "_" + mCurrentSquarePrefix : "";
+        return new File(mActivity.getFilesDir(),id + prefix + "_crop.jpg" + (temp ? ".tmp" : ""));
     }
 
     private File getOriginalFilePath(long id, boolean temp) {
-        return new File(mActivity.getFilesDir(),id + ".jpg" + (temp ? ".tmp" : ""));
+        String prefix = mCurrentSquarePrefix != null ? "_" + mCurrentSquarePrefix : "";
+        return new File(mActivity.getFilesDir(),id + prefix + ".jpg" + (temp ? ".tmp" : ""));
     }
 
     private Uri copyFile(Uri sourceUri) {
@@ -454,7 +459,8 @@ public class EditDialog {
             return null;
         }
         boolean success;
-        String dstFileName = mCurrentSquareId + ".jpg.tmp";
+        String prefix = mCurrentSquarePrefix != null ? "_" + mCurrentSquarePrefix : "";
+        String dstFileName = mCurrentSquareId + prefix + ".jpg.tmp";
         BufferedInputStream bis = null;
         BufferedOutputStream bos = null;
 

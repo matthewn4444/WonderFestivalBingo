@@ -3,6 +3,7 @@ package com.matthewn4444.wonderfestbingo.ui;
 import android.graphics.Color;
 import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.Html;
 import android.util.Log;
 import android.util.TypedValue;
@@ -20,55 +21,40 @@ import java.util.Collections;
 import java.util.List;
 
 public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, BingoSquareData> {
-
+    private static final String TAG = "BingoListAdapter";
     public static final int DEFAULT_FONT_SIZE = 14;
-    public static final int ROWS = 5;
-    public static final int COLUMNS = 5;
-    public static final int MAX_ITEMS = ROWS * COLUMNS;
-    public static final int FREE_SPACE_INDEX = ROWS / 2 * COLUMNS + COLUMNS / 2;
 
-    private int mFontSize;
+    private int mFontSize = DEFAULT_FONT_SIZE;
+    private final String mPrefix;
+    protected final int mSideSize;
 
-    public BingoListAdapter() {
-        super(new ArrayList<BingoSquareData>(MAX_ITEMS));
-        init();
+    public BingoListAdapter(int sideSize, @NonNull String prefix) {
+        super(new ArrayList<BingoSquareData>(sideSize * sideSize));
+        mSideSize = sideSize;
+        mPrefix = prefix;
+        init(prefix);
     }
 
-    public BingoListAdapter(List<BingoSquareData> data) {
+    public BingoListAdapter(@NonNull List<BingoSquareData> data, @Nullable String prefix) {
         super(data);
 
-        // If there are too many items, remove the access
-        if (data.size() > MAX_ITEMS) {
-            for (int i = data.size() - 1; i >= MAX_ITEMS; i--) {
-                data.remove(i);
-            }
+        mSideSize = (int) Math.sqrt(data.size());
+        mPrefix = prefix;
+        int size = mSideSize * mSideSize;
+        if (size != data.size()) {
+            Log.w(TAG, "Data length should be able to be square root, will be missing data");
         }
-        init();
+
+        // If there are too many items, remove the access
+        if (data.size() > size) {
+            data.subList(size, data.size()).clear();
+        }
+        init(prefix);
     }
 
     public void shuffle() {
-        BingoSquareData freespace = mEntries.remove(FREE_SPACE_INDEX);
         Collections.shuffle(mEntries);
-        mEntries.add(FREE_SPACE_INDEX, freespace);
         notifyDataSetChanged();
-    }
-
-    private void init() {
-        for (int i = getItemCount(); i < MAX_ITEMS; i++) {
-            add(new BingoSquareData(i, null, null));
-        }
-
-        // Set the hardcoded free space
-        BingoSquareData data = getEntry(FREE_SPACE_INDEX);
-        data.setStampedState(true);
-        data.setName(BingoSquareData.FreeSpace);
-        setHasStableIds(true);
-        notifyDataSetChanged();
-    }
-
-    @Override
-    public long getItemId(int position) {
-        return mEntries.get(position).getId();
     }
 
     public void swap(int first, int second) {
@@ -80,14 +66,18 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         notifyDataSetChanged();
     }
 
+    public String getPrefix() {
+        return mPrefix;
+    }
+
     public int getBingoCount() {
         int count = 0;
         // Loop throw each row
         boolean bingo;
-        for (int r = 0; r < BingoListAdapter.ROWS; r++) {
+        for (int r = 0; r < mSideSize; r++) {
             bingo = true;
-            for (int c = 0; c < BingoListAdapter.COLUMNS; c++) {
-                if (!getEntry(r * BingoListAdapter.COLUMNS + c).isStamped()) {
+            for (int c = 0; c < mSideSize; c++) {
+                if (!getEntry(r * mSideSize  /* columns */ + c).isStamped()) {
                     bingo = false;
                     break;
                 }
@@ -98,10 +88,10 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         }
 
         // Loop through columms
-        for (int c = 0; c < BingoListAdapter.COLUMNS; c++) {
+        for (int c = 0; c < mSideSize; c++) {
             bingo = true;
-            for (int r = 0; r < BingoListAdapter.ROWS; r++) {
-                if (!getEntry(r * BingoListAdapter.COLUMNS + c).isStamped()) {
+            for (int r = 0; r < mSideSize; r++) {
+                if (!getEntry(r * mSideSize  /* columns */ + c).isStamped()) {
                     bingo = false;
                     break;
                 }
@@ -114,8 +104,8 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         // Top left diagonal to bottom right
         int c = 0, r = 0;
         bingo = true;
-        for (int i = 0; i < Math.min(BingoListAdapter.COLUMNS, BingoListAdapter.ROWS); i++) {
-            if (!getEntry((r + i) * BingoListAdapter.COLUMNS + (c + i)).isStamped()) {
+        for (int i = 0; i < mSideSize /* should be min of width and height */; i++) {
+            if (!getEntry((r + i) * mSideSize /* columns */ + (c + i)).isStamped()) {
                 bingo = false;
                 break;
             }
@@ -125,11 +115,11 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         }
 
         // Top left diagonal to bottom right
-        c = BingoListAdapter.COLUMNS - 1;
+        c = mSideSize - 1;
         r = 0;
         bingo = true;
-        for (int i = 0; i < Math.min(BingoListAdapter.COLUMNS, BingoListAdapter.ROWS); i++) {
-            if (!getEntry((r + i) * BingoListAdapter.COLUMNS + (c - i)).isStamped()) {
+        for (int i = 0; i < mSideSize /* should be min of width and height */; i++) {
+            if (!getEntry((r + i) * mSideSize /* columns */ + (c - i)).isStamped()) {
                 bingo = false;
                 break;
             }
@@ -140,13 +130,22 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         return count;
     }
 
-    public static class Holder extends ClickableAdapter.ViewHolder {
-        public final View view;
-        public final ImageView imageView;
-        public final TextView nameView;
-        public final ImageView stampView;
+    private void init(String prefix) {
+        for (int i = getItemCount(); i < mSideSize * mSideSize; i++) {
+            add(new BingoSquareData(i, null, null, prefix));
+        }
+        postSquareChange();
+        setHasStableIds(true);
+        notifyDataSetChanged();
+    }
 
-        public Holder(View v) {
+    static class Holder extends ClickableAdapter.ViewHolder {
+        final View view;
+        final ImageView imageView;
+        final TextView nameView;
+        final ImageView stampView;
+
+        Holder(View v) {
             super(v);
             view = v;
             imageView = v.findViewById(R.id.image);
@@ -154,7 +153,7 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
             stampView = v.findViewById(R.id.stamp);
         }
 
-        public int getColor(@ColorRes int id) {
+        int getColor(@ColorRes int id) {
             return view.getResources().getColor(id);
         }
     }
@@ -170,7 +169,7 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
     public void onBindViewHolder(@NonNull Holder holder, int position) {
         super.onBindViewHolder(holder, position);
         BingoSquareData entry = mEntries.get(position);
-        final boolean applyShadow = entry.getCroppedImageUri() != null || entry.isStamped();
+        boolean applyShadow = entry.getCroppedImageUri() != null || entry.isStamped();
         holder.nameView.setTextColor(applyShadow ? Color.WHITE : holder.getColor(R.color.bingo_dark_text));
         if (applyShadow) {
             holder.nameView.setShadowLayer(8f, 0, 0, Color.BLACK);
@@ -181,6 +180,14 @@ public class BingoListAdapter extends ClickableAdapter<BingoListAdapter.Holder, 
         holder.nameView.setText(Html.fromHtml(entry.getDisplayName()));
         holder.nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, mFontSize);
         holder.stampView.setVisibility(entry.isStamped() ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return mEntries.get(position).getId();
+    }
+
+    protected void postSquareChange() {
     }
 
     protected static void log(Object... txt) {

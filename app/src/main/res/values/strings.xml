@@ -9,6 +9,8 @@
 
     <string name="action_mode_edit">Modify a square</string>
 
+    <string name="label_instant_win_bingo">Instant Winner</string>
+
     <string name="dialog_edit_squares_title">Modify Square</string>
     <string name="dialog_edit_squares_free_space_title">Modify Free Space</string>
     <string name="dialog_edit_squares_type_title">Type</string>
@@ -19,6 +21,9 @@
 
     <string name="settings_title_font_size_slider">Adjust Font Size</string>
     <string name="settings_key_font_size_slider">settings.key.font.size.slider</string>
+
+    <string name="settings_title_hide_instant">Hide Instant Winner Box</string>
+    <string name="settings_key_hide_instant">settings.key.hide.instant</string>
 
     <string name="dialog_edit_squares_image_paste_url_button_text">Paste image or MFC url and crop</string>
     <string name="dialog_edit_squares_image_open_image_button_text">Open image and crop</string>

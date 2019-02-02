@@ -30,6 +30,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.animation.PathInterpolatorCompat;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.method.LinkMovementMethod;
 import android.util.DisplayMetrics;
@@ -39,14 +40,18 @@ import android.view.HapticFeedbackConstants;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Interpolator;
+import android.widget.CompoundButton;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.matthewn4444.wonderfestbingo.ui.BingoCardAdapter;
 import com.matthewn4444.wonderfestbingo.ui.BingoListAdapter;
 import com.matthewn4444.wonderfestbingo.ui.RecyclerViewAdapterListener;
 import com.matthewn4444.wonderfestbingo.ui.SpacesItemDecoration;
@@ -67,11 +72,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
-public class MainActivity extends BaseActivity implements RecyclerViewAdapterListener,
-        ActionMode.Callback, EditDialog.OnEditDialogCompleteListener {
+public class MainActivity extends BaseActivity implements ActionMode.Callback,
+        EditDialog.OnEditDialogCompleteListener {
     private static final String TAG = "MainActivity";
     private static final String SAVE_FILE = "savedata.dat";
     private static final String SNAP_SHOT_NAME = "WonderFest-bingo-screenshot";
+    private static final String ADAPTER_PREFIX_INSTANT = "instant";
     private static final float SOUND_EFFECT_VOLUME_STAMP = 0.3f;
     private static final float SOUND_EFFECT_VOLUME_BINGO = 0.8f;
     private static final int[] BINGO_SOUNDS = {
@@ -91,13 +97,15 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     private final Random mRandom = new Random();
 
     private RecyclerView mBingoView;
+    private RecyclerView mInstantBingoView;
     private int mBingoCount;
     private View mBingoImage;
     private int mBingoImgHeight;
     private int mDisplayWidth;
     private int mDisplayHeight;
     private Uri mSharedImageUri;
-    private BingoListAdapter mAdapter;
+    private BingoCardAdapter mAdapter;
+    private BingoListAdapter mAdapterInstant;
     private ValueAnimator mBingoAnimator;
     private RecyclerView.LayoutManager mLayoutManager;
     private ActionMode mActionMode;
@@ -109,10 +117,11 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     private View mSettingsArea;
     private int mMinBingoFontSize;
     private String mFontSizeKey;
+    private String mHideInstantKey;
     private SharedPreferences mPrefs;
 
-    private List<String> mUniqueNamesList = new ArrayList<>(BingoListAdapter.MAX_ITEMS);
-    private Map<String, Integer> mNamesMap = new HashMap<>(BingoListAdapter.MAX_ITEMS);
+    private List<String> mUniqueNamesList = new ArrayList<>(BingoCardAdapter.MAX_ITEMS);
+    private Map<String, Integer> mNamesMap = new HashMap<>(BingoCardAdapter.MAX_ITEMS);
 
     public static Bitmap loadBitmapFromView(View v, int width, int height) {
         Bitmap b = Bitmap.createBitmap( width, height, Bitmap.Config.ARGB_8888);
@@ -138,6 +147,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         mMinBingoFontSize = getResources().getInteger(R.integer.bingo_square_min_font_size);
         mFontSizeKey = getString(R.string.settings_key_font_size_slider);
+        mHideInstantKey = getString(R.string.settings_key_hide_instant);
 
         // Allow security to share bitmaps
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
@@ -145,6 +155,7 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
 
         TextView subtitleText = findViewById(R.id.year_season_text);
         mBingoView = findViewById(R.id.bingo);
+        mInstantBingoView = findViewById(R.id.instant_bingo);
         mBingoImage = findViewById(R.id.bingo_image);
         mFontSizeSeekBar = findViewById(R.id.font_size_slider);
         mSettingsArea = findViewById(R.id.settings_area);
@@ -167,10 +178,10 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 isSummer() ? "Summer" : "Winter"));
 
         // Setup bingo layout
-        mLayoutManager = new GridLayoutManager(this, 5);
+        int dividerSize = (int) getResources().getDimension(R.dimen.bingo_divider_size);
+        mLayoutManager = new GridLayoutManager(this, BingoCardAdapter.COLUMNS);
         mBingoView.setLayoutManager(mLayoutManager);
-        mBingoView.addItemDecoration(new SpacesItemDecoration(
-                (int) getResources().getDimension(R.dimen.bingo_divider_size)));
+        mBingoView.addItemDecoration(new SpacesItemDecoration(dividerSize));
         mBingoView.hasFixedSize();
 
         // Get the bingo image height based on screen width
@@ -187,6 +198,21 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
             });
         }
 
+        // Setup instant bingo, calculate the size of the square
+        LinearLayoutManager manager = new LinearLayoutManager(this);
+        mInstantBingoView.setLayoutManager(manager);
+        ViewGroup.MarginLayoutParams lp =
+                (ViewGroup.MarginLayoutParams) mBingoView.getLayoutParams();
+        int size = (mDisplayWidth - lp.getMarginStart() - lp.getMarginEnd()
+                - dividerSize * 2) / BingoCardAdapter.COLUMNS + dividerSize * 2;
+        mInstantBingoView.setLayoutFrozen(true);
+        mInstantBingoView.hasFixedSize();
+        mInstantBingoView.addItemDecoration(new SpacesItemDecoration(dividerSize));
+        lp = (ViewGroup.MarginLayoutParams) mInstantBingoView.getLayoutParams();
+        lp.width = size;
+        lp.height = size;
+        mInstantBingoView.setLayoutParams(lp);
+
         // Setup the slider
         mFontSizeSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             private int mOriginalFontSize;
@@ -194,7 +220,9 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    mAdapter.setFontSize(progress + mMinBingoFontSize);
+                    int size = progress + mMinBingoFontSize;
+                    mAdapter.setFontSize(size);
+                    mAdapterInstant.setFontSize(size);
                 }
             }
 
@@ -212,6 +240,21 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
             }
         });
 
+        // Switch to hide winner box
+        Switch hideInstantSwitch = findViewById(R.id.hide_instant_switch);
+        final View instantContainer = findViewById(R.id.instant_container);
+        hideInstantSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                mPrefs.edit().putBoolean(mHideInstantKey, b).apply();
+                instantContainer.setVisibility(b ? View.GONE : View.VISIBLE);
+            }
+        });
+        boolean hideInstantBox = mPrefs.getBoolean(mHideInstantKey, false);
+        if (hideInstantBox) {
+            instantContainer.setVisibility(View.GONE);
+            hideInstantSwitch.setChecked(true);
+        }
         if (verifyStoragePermissionsOrShowDialogs()) {
             loadData();
         }
@@ -317,7 +360,12 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
 
     @Override
     public void onEditDialogComplete(long id, BingoSquareData data) {
-        mAdapter.notifyDataSetChanged();
+        if (mAdapterInstant.getPrefix().equals(data.getPrefix())) {
+            mAdapterInstant.notifyDataSetChanged();
+        } else {
+            mAdapter.notifyDataSetChanged();
+        }
+
         if (!data.isUnique()
                 && (mNameDataBeforeDialog != null && !mNameDataBeforeDialog.equals(data.getName())
                 || data.getName() != null && !data.getName().equals(mNameDataBeforeDialog))) {
@@ -333,25 +381,24 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         saveData();
     }
 
-    @Override
-    public void onClick(View v, int position) {
+    private void handleClick(View v, int position, BingoListAdapter adapter) {
         if (mBingoAnimator != null && mBingoAnimator.isRunning()) {
             return;
         }
         if (mActionMode != null) {
-            BingoSquareData data = mAdapter.getEntry(position);
+            BingoSquareData data = adapter.getEntry(position);
             mNameDataBeforeDialog = data.getName();
             mDialog.show(data, mUniqueNamesList);
         } else {
             // Stamping time
-            BingoSquareData data = mAdapter.getEntry(position);
+            BingoSquareData data = adapter.getEntry(position);
             if (data.toggleStamped()) {
-                mAdapter.notifyItemChanged(position);
+                adapter.notifyItemChanged(position);
                 saveData();
 
                 // See if we just bingo-ed!
-                int count = mAdapter.getBingoCount();
-                if (mBingoCount < count) {
+                int count = adapter.getBingoCount();
+                if (mBingoCount < count || (adapter == mAdapterInstant && count > 0)) {
                     // Animate the bingo image down the screen
                     mBingoAnimator = ValueAnimator.ofInt(-mBingoImgHeight, mDisplayHeight);
                     mBingoAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -383,7 +430,9 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 } else if (data.isStamped()) {
                     playStampSound();
                 }
-                mBingoCount = count;
+                if (adapter == mAdapter) {
+                    mBingoCount = count;
+                }
             }
             v.performHapticFeedback(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ?
                     HapticFeedbackConstants.CONTEXT_CLICK : HapticFeedbackConstants.VIRTUAL_KEY);
@@ -394,12 +443,6 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
     public void onDetachedFromWindow() {
         mDialog.hide();
         super.onDetachedFromWindow();
-    }
-
-    @Override
-    public boolean onLongClick(View v, int position) {
-        Toast.makeText(this, mAdapter.getEntry(position).getName(), Toast.LENGTH_SHORT).show();
-        return true;
     }
 
     @Override
@@ -447,6 +490,14 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         startActivity(i);
     }
 
+    private boolean handleLongClick(View v, int position, BingoListAdapter adapter) {
+        if (adapter.getEntry(position).getName() == null) {
+            return false;
+        }
+        Toast.makeText(this, adapter.getEntry(position).getName(), Toast.LENGTH_SHORT).show();
+        return true;
+    }
+
     private boolean isSummer() {
         return Calendar.getInstance().get(Calendar.MONTH) > 4;
     }
@@ -483,12 +534,39 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
 
         // Put the data in the adapter
         if (mAdapter == null) {
-            mAdapter = new BingoListAdapter();
+            mAdapter = new BingoCardAdapter();
         }
-        mAdapter.setAdapterListener(MainActivity.this);
+        mAdapter.setAdapterListener(new RecyclerViewAdapterListener() {
+            @Override
+            public void onClick(View v, int position) {
+                handleClick(v, position, mAdapter);
+            }
+
+            @Override
+            public boolean onLongClick(View v, int position) {
+                return handleLongClick(v, position, mAdapter);
+            }
+        });
         mBingoView.setAdapter(mAdapter);
         mBingoCount = mAdapter.getBingoCount();
         setSavedFontSize();
+
+        // Instant bingo
+        if (mAdapterInstant == null) {
+            mAdapterInstant = new BingoListAdapter(1, ADAPTER_PREFIX_INSTANT);
+        }
+        mInstantBingoView.setAdapter(mAdapterInstant);
+        mAdapterInstant.setAdapterListener(new RecyclerViewAdapterListener() {
+            @Override
+            public void onClick(View v, int position) {
+                handleClick(v, position, mAdapterInstant);
+            }
+
+            @Override
+            public boolean onLongClick(View v, int position) {
+                return handleLongClick(v, position, mAdapterInstant);
+            }
+        });
     }
 
     private void playStampSound() {
@@ -522,9 +600,13 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                 synchronized (mFileLock) {
                     try (ObjectOutputStream stream = new ObjectOutputStream(
                             openFileOutput(SAVE_FILE, Context.MODE_PRIVATE))) {
-                        for (int i = 0; i < BingoListAdapter.MAX_ITEMS; i++) {
+                        // Save the bingo card data
+                        for (int i = 0; i < BingoCardAdapter.MAX_ITEMS; i++) {
                             stream.writeObject(mAdapter.getEntry(i));
                         }
+
+                        // Save the instant bingo
+                        stream.writeObject(mAdapterInstant.getEntry(0));
                         stream.flush();         // TODO prob dont need this
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -545,7 +627,11 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
         int fontSizeDiff = mPrefs.getInt(mFontSizeKey,
                 BingoListAdapter.DEFAULT_FONT_SIZE - mMinBingoFontSize);
         mFontSizeSeekBar.setProgress(fontSizeDiff);
-        mAdapter.setFontSize(fontSizeDiff + mMinBingoFontSize);
+        int size = fontSizeDiff + mMinBingoFontSize;
+        mAdapter.setFontSize(size);
+        if (mAdapterInstant != null) {
+            mAdapterInstant.setFontSize(size);
+        }
     }
 
     private void loadData() {
@@ -560,11 +646,12 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
             @Override
             public void run() {
                 final List<BingoSquareData> dataList = new ArrayList<>();
+                final List<BingoSquareData> instantDataList = new ArrayList<>();
                 int resultCode = LOAD_SUCCESS;
                 synchronized (mFileLock) {
                     try (ObjectInputStream stream = new ObjectInputStream(new FileInputStream(
                             saveFile))) {
-                        for (int i = 0; i < BingoListAdapter.MAX_ITEMS; i++) {
+                        for (int i = 0; i < BingoCardAdapter.MAX_ITEMS; i++) {
                             BingoSquareData data = (BingoSquareData) stream.readObject();
                             dataList.add(data);
 
@@ -576,6 +663,13 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                                 }
                             }
                         }
+
+                        // Load instant bingo data
+                        BingoSquareData data = (BingoSquareData) stream.readObject();
+                        if (data != null) {
+                            instantDataList.add(data);
+                        }
+
                     } catch (ObjectStreamException e) {
                         e.printStackTrace();
                         resultCode = LOAD_ERROR_MAY_DELETE;
@@ -622,7 +716,9 @@ public class MainActivity extends BaseActivity implements RecyclerViewAdapterLis
                                         .show();
                                 return;
                             default:
-                                mAdapter = new BingoListAdapter(dataList);
+                                mAdapter = new BingoCardAdapter(dataList);
+                                mAdapterInstant = new BingoListAdapter(instantDataList,
+                                        ADAPTER_PREFIX_INSTANT);
                                 setSavedFontSize();
                                 break;
                         }

@@ -28,12 +28,14 @@ public class BingoSquareData implements Serializable {
     private String mCroppedImageUrl;
     private String mOriginalImageUrl;
     private boolean mStamped;
+    private String mPrefix;
 
     private boolean mImageInvalided;
 
-    public BingoSquareData(int id, String name, Uri imageUrl) {
+    public BingoSquareData(int id, String name, Uri imageUrl, String prefix) {
         mId = id;
         mCroppedImageUrl = imageUrl != null ? imageUrl.toString() : null;
+        mPrefix = prefix;
         setName(name);
     }
 
@@ -89,6 +91,10 @@ public class BingoSquareData implements Serializable {
 
     public long getId() {
         return mId;
+    }
+
+    public String getPrefix() {
+        return mPrefix;
     }
 
     public boolean isStamped() {
