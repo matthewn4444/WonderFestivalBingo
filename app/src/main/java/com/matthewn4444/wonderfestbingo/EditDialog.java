@@ -10,7 +10,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -333,6 +335,9 @@ public class EditDialog {
                     new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
+                            v.performHapticFeedback(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                                    ? HapticFeedbackConstants.CONTEXT_CLICK
+                                    : HapticFeedbackConstants.VIRTUAL_KEY);
                             if (mCopying) {
                                 toast("There is a copying session occuring");
                                 return;

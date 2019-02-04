@@ -14,6 +14,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:clipChildren="false"
             android:paddingBottom="10dp"
             android:paddingTop="10dp">
 
@@ -89,7 +90,8 @@
                 android:layout_marginEnd="10dp"
                 android:layout_marginBottom="10dp"
                 android:layout_marginStart="10dp"
-                android:background="@android:color/black"
+                android:clipToPadding="false"
+                android:background="@drawable/border"
                 android:elevation="3dp"
                 android:padding="@dimen/bingo_divider_size" />
 

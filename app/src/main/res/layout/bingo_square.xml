@@ -4,6 +4,7 @@
     android:foreground="?android:attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true"
+    android:elevation="12dp"
     android:background="@android:color/white"
     android:layout_height="wrap_content">
 

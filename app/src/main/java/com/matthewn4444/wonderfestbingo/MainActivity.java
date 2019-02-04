@@ -2,6 +2,8 @@ package com.matthewn4444.wonderfestbingo;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -11,6 +13,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -25,6 +28,7 @@ import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.RawRes;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.animation.PathInterpolatorCompat;
@@ -32,6 +36,7 @@ import android.support.v7.view.ActionMode;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.text.method.LinkMovementMethod;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -80,6 +85,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
     private static final String ADAPTER_PREFIX_INSTANT = "instant";
     private static final float SOUND_EFFECT_VOLUME_STAMP = 0.3f;
     private static final float SOUND_EFFECT_VOLUME_BINGO = 0.8f;
+    private static final float DRAG_DROP_SCALE = 1.2f;
     private static final int[] BINGO_SOUNDS = {
             R.raw.bingo1, R.raw.bingo2, R.raw.bingo3
     };
@@ -106,6 +112,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
     private Uri mSharedImageUri;
     private BingoCardAdapter mAdapter;
     private BingoListAdapter mAdapterInstant;
+    private ItemTouchHelper mBingoCardTouchHelper;
     private ValueAnimator mBingoAnimator;
     private RecyclerView.LayoutManager mLayoutManager;
     private ActionMode mActionMode;
@@ -140,10 +147,83 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
         }
     };
 
+    private final ItemTouchHelper.Callback mBingoDragHelper = new ItemTouchHelper.Callback() {
+
+        private RecyclerView.ViewHolder mHeldView;
+        private ObjectAnimator mHeldAnimator;
+
+        @Override
+        public void onSelectedChanged(@Nullable RecyclerView.ViewHolder viewHolder,
+                                      int actionState) {
+            super.onSelectedChanged(viewHolder, actionState);
+            if (actionState == ItemTouchHelper.ACTION_STATE_IDLE) {
+                saveData();
+                log(mHeldView);
+                if (mHeldView != null && mHeldAnimator != null) {
+                    if (mHeldAnimator.isRunning()) {
+                        mHeldAnimator.cancel();
+                    }
+                    final View view = mHeldView.itemView;
+                    PropertyValuesHolder pvhX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f);
+                    PropertyValuesHolder pvhY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f);
+                    ObjectAnimator.ofPropertyValuesHolder(mHeldView.itemView, pvhX, pvhY)
+                            .setDuration(150).start();
+                }
+                mHeldView = null;
+                mHeldAnimator = null;
+            } else if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                if (viewHolder != null) {
+                    mHeldView = viewHolder;
+                    PropertyValuesHolder pvhX = PropertyValuesHolder.ofFloat(View.SCALE_X,
+                            DRAG_DROP_SCALE);
+                    PropertyValuesHolder pvhY = PropertyValuesHolder.ofFloat(View.SCALE_Y,
+                            DRAG_DROP_SCALE);
+                    mHeldAnimator = ObjectAnimator.ofPropertyValuesHolder(mHeldView.itemView, pvhX, pvhY).setDuration(100);
+                    mHeldAnimator.start();
+                }
+            }
+        }
+
+        @Override
+        public void onMoved(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, int fromPos, @NonNull RecyclerView.ViewHolder target, int toPos, int x, int y) {
+            super.onMoved(recyclerView, viewHolder, fromPos, target, toPos, x, y);
+        }
+
+        @Override
+        public int getMovementFlags(@NonNull RecyclerView recyclerView,
+                                    @NonNull RecyclerView.ViewHolder viewHolder) {
+            if (mAdapter.getEntry(viewHolder.getAdapterPosition()).isUnique()) {
+                return 0;
+            }
+            return makeFlag(ItemTouchHelper.ACTION_STATE_DRAG, ItemTouchHelper.DOWN
+                    | ItemTouchHelper.UP | ItemTouchHelper.START | ItemTouchHelper.END);
+        }
+
+        @Override
+        public boolean onMove(@NonNull RecyclerView recyclerView,
+                              @NonNull RecyclerView.ViewHolder viewHolder,
+                              @NonNull RecyclerView.ViewHolder target) {
+            int srcPos = viewHolder.getAdapterPosition();
+            int dstPos = target.getAdapterPosition();
+            if (mAdapter.getEntry(srcPos).isUnique() || mAdapter.getEntry(dstPos).isUnique()) {
+                return false;
+            }
+            mAdapter.swap(viewHolder.getAdapterPosition(), target.getAdapterPosition());
+            mAdapter.notifyItemMoved(viewHolder.getAdapterPosition(), target.getAdapterPosition());
+            log("Swaped", srcPos, dstPos);
+            return true;
+        }
+
+        @Override
+        public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int i) {
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        final Resources res = getResources();
         mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         mMinBingoFontSize = getResources().getInteger(R.integer.bingo_square_min_font_size);
         mFontSizeKey = getString(R.string.settings_key_font_size_slider);
@@ -183,6 +263,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
         mBingoView.setLayoutManager(mLayoutManager);
         mBingoView.addItemDecoration(new SpacesItemDecoration(dividerSize));
         mBingoView.hasFixedSize();
+        mBingoCardTouchHelper = new ItemTouchHelper(mBingoDragHelper);
 
         // Get the bingo image height based on screen width
         ViewTreeObserver viewTreeObserver = mBingoImage.getViewTreeObserver();
@@ -245,9 +326,24 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
         final View instantContainer = findViewById(R.id.instant_container);
         hideInstantSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+            public void onCheckedChanged(CompoundButton compoundButton, final boolean b) {
                 mPrefs.edit().putBoolean(mHideInstantKey, b).apply();
-                instantContainer.setVisibility(b ? View.GONE : View.VISIBLE);
+                if (!b) {
+                    instantContainer.setVisibility(View.VISIBLE);
+                    instantContainer.setAlpha(0);
+                }
+                instantContainer.animate().alpha(b ? 0 : 1f).setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        super.onAnimationEnd(animation);
+                        if (b) {
+                            instantContainer.setVisibility(View.GONE);
+                        }
+                    }
+                }).start();
+
+
+//                instantContainer.setVisibility(b ? View.GONE : View.VISIBLE);
             }
         });
         boolean hideInstantBox = mPrefs.getBoolean(mHideInstantKey, false);
@@ -320,7 +416,8 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
                     public void run() {
                         // Get the screenshot as a bitmap and insert into mediastorage, delete later
                         int bottom = mBingoView.getTop() + mBingoView.getHeight()
-                                + ((View) mBingoView.getParent()).getPaddingTop();
+                                + ((View) mBingoView.getParent()).getPaddingTop()
+                                + ((View) mBingoView.getParent()).getPaddingBottom();
                         Bitmap bitmap = loadBitmapFromView(findViewById(R.id.main_layout),
                                 mDisplayWidth, bottom);
                         mSharedImageUri = Uri.parse(MediaStore.Images.Media.insertImage(
@@ -434,9 +531,9 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
                     mBingoCount = count;
                 }
             }
-            v.performHapticFeedback(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ?
-                    HapticFeedbackConstants.CONTEXT_CLICK : HapticFeedbackConstants.VIRTUAL_KEY);
         }
+        v.performHapticFeedback(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                ? HapticFeedbackConstants.CONTEXT_CLICK : HapticFeedbackConstants.VIRTUAL_KEY);
     }
 
     @Override
@@ -463,6 +560,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
         mSettingsArea.setVisibility(View.VISIBLE);
         mSettingsArea.setAlpha(0);
         mSettingsArea.animate().alpha(1f).setListener(null).start();
+        mBingoCardTouchHelper.attachToRecyclerView(mBingoView);
         return false;
     }
 
@@ -522,6 +620,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
     public void onDestroyActionMode(ActionMode mode) {
         mActionMode = null;
         animateStatusBarColor(R.color.colorPrimaryDark);
+        mBingoCardTouchHelper.attachToRecyclerView(null);
     }
 
     private void initAdapter() {
@@ -544,7 +643,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
 
             @Override
             public boolean onLongClick(View v, int position) {
-                return handleLongClick(v, position, mAdapter);
+                return mActionMode == null && handleLongClick(v, position, mAdapter);
             }
         });
         mBingoView.setAdapter(mAdapter);
