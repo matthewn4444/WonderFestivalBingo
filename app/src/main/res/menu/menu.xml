@@ -12,7 +12,7 @@
         android:icon="@drawable/ic_share_white_24dp"
         android:title="@string/menu_share"
         android:orderInCategory="100"
-        app:showAsAction="ifRoom"/>
+        app:showAsAction="always"/>
 
     <item android:id="@+id/edit"
         android:icon="@drawable/ic_mode_edit_white_24dp"
@@ -20,4 +20,13 @@
         android:orderInCategory="101"
         app:showAsAction="always"/>
 
+    <item android:id="@+id/export_data"
+        android:title="@string/menu_export"
+        android:orderInCategory="102"
+        app:showAsAction="never"/>
+
+    <item android:id="@+id/import_data"
+        android:title="@string/menu_import"
+        android:orderInCategory="102"
+        app:showAsAction="never"/>
 </menu>

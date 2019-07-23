@@ -40,7 +40,7 @@ import java.util.Objects;
 
 public class EditDialog {
     private static final String TAG = "EditDialog";
-    private static final int OPEN_IMAGE_REQUEST_CODE = MainActivity.RESULT_CODE_SHARE_IMAGE + 1;
+    private static final int OPEN_IMAGE_REQUEST_CODE = MainActivity.REQUEST_CODE_SHARE_IMAGE - 1;
     private static final int MAX_CROP_SIZE = 500;
     private static final int INVALID_ID = -1;
     private static final float DISABLED_BUTTON_ALPHA = 0.4f;

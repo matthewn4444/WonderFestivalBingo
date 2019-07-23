@@ -8,7 +8,6 @@ import android.animation.ValueAnimator;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -23,6 +22,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
@@ -30,6 +30,7 @@ import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.RawRes;
+import android.support.annotation.WorkerThread;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.animation.PathInterpolatorCompat;
 import android.support.v7.view.ActionMode;
@@ -64,10 +65,12 @@ import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -97,7 +100,9 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
     private static final int LOAD_ERROR = 2;
     private static final int LOAD_ERROR_MAY_DELETE = 3;
 
-    public static final int RESULT_CODE_SHARE_IMAGE = 1;
+    public static final int REQUEST_CODE_SHARE_IMAGE = 2;
+    public static final int REQUEST_CODE_EXPORT = 3;
+    public static final int REQUEST_CODE_IMPORT = 4;
 
     private final Object mFileLock = new Object();
     private final Random mRandom = new Random();
@@ -373,6 +378,7 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        Intent intent;
         switch (item.getItemId()) {
             case R.id.edit:
                 if (mActionMode != null || !verifyStoragePermissionsOrShowDialogs()) {
@@ -428,9 +434,26 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
                         intent.putExtra(Intent.EXTRA_STREAM, mSharedImageUri);
                         intent.setType("image/jpeg");
                         startActivityForResult(Intent.createChooser(intent, "Share bingo via"),
-                                RESULT_CODE_SHARE_IMAGE);
+                                REQUEST_CODE_SHARE_IMAGE);
                     }
                 });
+                return true;
+            case R.id.export_data:
+                Calendar calendar = Calendar.getInstance();
+                SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yyyy",
+                        Locale.getDefault());
+                intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/octet-stream");
+                intent.putExtra(Intent.EXTRA_TITLE, String.format(Locale.getDefault(),
+                        "bingo-%s.dat", dateFormat.format(calendar.getTime())));
+                startActivityForResult(intent, REQUEST_CODE_EXPORT);
+                return true;
+            case R.id.import_data:
+                intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/octet-stream");
+                startActivityForResult(intent, REQUEST_CODE_IMPORT);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -438,11 +461,71 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == RESULT_CODE_SHARE_IMAGE) {
+        if (requestCode == REQUEST_CODE_SHARE_IMAGE) {
             if (mSharedImageUri != null) {
                 getContentResolver().delete(mSharedImageUri, null, null);
             } else {
                 Log.w(TAG, "Shared image returned with no valid member");
+            }
+        } else if (requestCode == REQUEST_CODE_EXPORT) {
+            Uri uri = data != null ? data.getData() : null;
+            if (uri != null) {
+                AsyncTask.execute(() -> {
+                    try (ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "w");
+                         FileOutputStream fos = pfd != null ?
+                                 new FileOutputStream(pfd.getFileDescriptor()) : null) {
+                        if (fos != null) {
+                            saveData(new ObjectOutputStream((fos)));
+                            runOnUiThread(() -> Toast.makeText(this, "Export complete",
+                                    Toast.LENGTH_SHORT).show());
+                        } else {
+                            runOnUiThread(() -> Toast.makeText(this, "Cannot export data",
+                                    Toast.LENGTH_SHORT).show());
+                        }
+                    } catch (IOException e) {
+                        runOnUiThread(() -> Toast.makeText(this, "Cannot export data, write issue",
+                                Toast.LENGTH_SHORT).show());
+                        e.printStackTrace();
+                    }
+                });
+            } else {
+                Toast.makeText(this, "Unable to export data to device", Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == REQUEST_CODE_IMPORT) {
+            Uri uri = data != null ? data.getData() : null;
+            if (uri != null) {
+                AsyncTask.execute(() -> {
+                    final List<BingoSquareData> dataList = new ArrayList<>();
+                    final List<BingoSquareData> instantDataList = new ArrayList<>();
+                    try (ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
+                         FileInputStream fis = pfd != null ?
+                                 new FileInputStream(pfd.getFileDescriptor()) : null) {
+                        if (fis != null) {
+                            loadData(new ObjectInputStream((fis)), dataList, instantDataList);
+                            runOnUiThread(() -> {
+                                mAdapter = new BingoCardAdapter(dataList);
+                                mAdapterInstant = new BingoListAdapter(instantDataList,
+                                        ADAPTER_PREFIX_INSTANT);
+                                initAdapter();
+                                Toast.makeText(this, "Import complete", Toast.LENGTH_SHORT).show();
+                            });
+                        } else {
+                            runOnUiThread(() -> Toast.makeText(this, "Cannot import data",
+                                    Toast.LENGTH_SHORT).show());
+                        }
+                    } catch (IOException e) {
+                        runOnUiThread(() -> Toast.makeText(this, "Cannot import data, read issue",
+                                Toast.LENGTH_SHORT).show());
+                        e.printStackTrace();
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                        runOnUiThread(() -> Toast.makeText(this, "Invalid data",
+                                Toast.LENGTH_SHORT).show());
+                    }
+                });
+            } else {
+                Toast.makeText(this, "Unable to import data from device", Toast.LENGTH_SHORT)
+                        .show();
             }
         } else if (!mDialog.handleActivityResult(requestCode, resultCode, data)) {
             if (resultCode == UCrop.RESULT_ERROR) {
@@ -699,28 +782,29 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
                 synchronized (mFileLock) {
                     try (ObjectOutputStream stream = new ObjectOutputStream(
                             openFileOutput(SAVE_FILE, Context.MODE_PRIVATE))) {
-                        // Save the bingo card data
-                        for (int i = 0; i < BingoCardAdapter.MAX_ITEMS; i++) {
-                            stream.writeObject(mAdapter.getEntry(i));
-                        }
-
-                        // Save the instant bingo
-                        stream.writeObject(mAdapterInstant.getEntry(0));
-                        stream.flush();         // TODO prob dont need this
+                        saveData(stream);
                     } catch (IOException e) {
                         e.printStackTrace();
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(MainActivity.this, "Unable to save",
-                                        Toast.LENGTH_SHORT).show();
-                            }
-                        });
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "Unable to save",
+                                Toast.LENGTH_SHORT).show());
                     }
                 }
             }
         });
     }
+
+    @WorkerThread
+    private void saveData(@NonNull ObjectOutputStream stream) throws IOException {
+        // Save the bingo card data
+        for (int i = 0; i < BingoCardAdapter.MAX_ITEMS; i++) {
+            stream.writeObject(mAdapter.getEntry(i));
+        }
+
+        // Save the instant bingo
+        stream.writeObject(mAdapterInstant.getEntry(0));
+        stream.flush();         // TODO prob dont need this
+    }
+
 
     private void setSavedFontSize() {
         int fontSizeDiff = mPrefs.getInt(mFontSizeKey,
@@ -741,91 +825,80 @@ public class MainActivity extends BaseActivity implements ActionMode.Callback,
         }
 
         // Load the data on another thread
-        AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
-            @Override
-            public void run() {
-                final List<BingoSquareData> dataList = new ArrayList<>();
-                final List<BingoSquareData> instantDataList = new ArrayList<>();
-                int resultCode = LOAD_SUCCESS;
-                synchronized (mFileLock) {
-                    try (ObjectInputStream stream = new ObjectInputStream(new FileInputStream(
-                            saveFile))) {
-                        for (int i = 0; i < BingoCardAdapter.MAX_ITEMS; i++) {
-                            BingoSquareData data = (BingoSquareData) stream.readObject();
-                            dataList.add(data);
-
-                            // Create unique name set, keep track of how many
-                            if (!data.isUnique()) {
-                                final String name = data.getName();
-                                if (name != null) {
-                                    addNameToList(name);
-                                }
-                            }
-                        }
-
-                        // Load instant bingo data
-                        BingoSquareData data = (BingoSquareData) stream.readObject();
-                        if (data != null) {
-                            instantDataList.add(data);
-                        }
-
-                    } catch (ObjectStreamException e) {
-                        e.printStackTrace();
-                        resultCode = LOAD_ERROR_MAY_DELETE;
-                        mUniqueNamesList.clear();
-                        mNamesMap.clear();
-                    } catch (IOException | ClassNotFoundException e) {
-                        e.printStackTrace();
-                        resultCode = LOAD_ERROR;
-                        mUniqueNamesList.clear();
-                        mNamesMap.clear();
-                    }
+        AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
+            final List<BingoSquareData> dataList = new ArrayList<>();
+            final List<BingoSquareData> instantDataList = new ArrayList<>();
+            int resultCode = LOAD_SUCCESS;
+            synchronized (mFileLock) {
+                try (ObjectInputStream stream = new ObjectInputStream(new FileInputStream(
+                        saveFile))) {
+                    loadData(stream, dataList, instantDataList);
+                } catch (ObjectStreamException e) {
+                    e.printStackTrace();
+                    resultCode = LOAD_ERROR_MAY_DELETE;
+                    mUniqueNamesList.clear();
+                    mNamesMap.clear();
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                    resultCode = LOAD_ERROR;
+                    mUniqueNamesList.clear();
+                    mNamesMap.clear();
                 }
-                final int result = resultCode;
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        switch (result) {
-                            case LOAD_ERROR:
-                                Toast.makeText(MainActivity.this, "Unable to load data",
-                                        Toast.LENGTH_SHORT).show();
-                                break;
-                            case LOAD_ERROR_MAY_DELETE:
-                                new AlertDialog.Builder(MainActivity.this)
-                                        .setMessage(R.string.message_delete_data_unparsable_data)
-                                        .setPositiveButton(android.R.string.yes,
-                                                new DialogInterface.OnClickListener() {
-                                                    @Override
-                                                    public void onClick(DialogInterface dialog,
-                                                                        int which) {
-                                                        if (!saveFile.delete()) {
-                                                            Log.w(TAG, "Unable to delete save");
-                                                        }
-                                                        initAdapter();
-                                                    }
-                                                })
-                                        .setNegativeButton(android.R.string.no,
-                                                new DialogInterface.OnClickListener() {
-                                                    @Override
-                                                    public void onClick(DialogInterface dialog,
-                                                                        int which) {
-                                                        initAdapter();
-                                                    }
-                                                })
-                                        .show();
-                                return;
-                            default:
-                                mAdapter = new BingoCardAdapter(dataList);
-                                mAdapterInstant = new BingoListAdapter(instantDataList,
-                                        ADAPTER_PREFIX_INSTANT);
-                                setSavedFontSize();
-                                break;
-                        }
-                        initAdapter();
-                    }
-                });
             }
+            final int result = resultCode;
+            runOnUiThread(() -> {
+                switch (result) {
+                    case LOAD_ERROR:
+                        Toast.makeText(MainActivity.this, "Unable to load data",
+                                Toast.LENGTH_SHORT).show();
+                        break;
+                    case LOAD_ERROR_MAY_DELETE:
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setMessage(R.string.message_delete_data_unparsable_data)
+                                .setPositiveButton(android.R.string.yes,
+                                        (dialog, which) -> {
+                                            if (!saveFile.delete()) {
+                                                Log.w(TAG, "Unable to delete save");
+                                            }
+                                            initAdapter();
+                                        })
+                                .setNegativeButton(android.R.string.no,
+                                        (dialog, which) -> initAdapter()).show();
+                        return;
+                    default:
+                        mAdapter = new BingoCardAdapter(dataList);
+                        mAdapterInstant = new BingoListAdapter(instantDataList,
+                                ADAPTER_PREFIX_INSTANT);
+                        setSavedFontSize();
+                        break;
+                }
+                initAdapter();
+            });
         });
+    }
+
+    @WorkerThread
+    private void loadData(@NonNull ObjectInputStream stream, List<BingoSquareData> dataList,
+                             List<BingoSquareData> instantDataList) throws IOException,
+            ClassNotFoundException {
+        for (int i = 0; i < BingoCardAdapter.MAX_ITEMS; i++) {
+            BingoSquareData data = (BingoSquareData) stream.readObject();
+            dataList.add(data);
+
+            // Create unique name set, keep track of how many
+            if (!data.isUnique()) {
+                final String name = data.getName();
+                if (name != null) {
+                    addNameToList(name);
+                }
+            }
+        }
+
+        // Load instant bingo data
+        BingoSquareData data = (BingoSquareData) stream.readObject();
+        if (data != null) {
+            instantDataList.add(data);
+        }
     }
 
     private void addNameToList(@NonNull String name) {

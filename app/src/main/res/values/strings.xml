@@ -6,6 +6,8 @@
     <string name="menu_share">Share</string>
     <string name="menu_close">Close</string>
     <string name="menu_shuffle">Shuffle</string>
+    <string name="menu_export">Export</string>
+    <string name="menu_import">Import</string>
 
     <string name="action_mode_edit">Modify a square</string>
 
