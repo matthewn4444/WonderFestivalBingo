@@ -1,6 +1,6 @@
 # WonFest Bingo Android App
 
-[Download App](https://github.com/matthewn4444/WonderFestivalBingo/releases/download/v1.1/WonderFestBingo.apk)
+[Download App](https://github.com/matthewn4444/WonderFestivalBingo/releases/download/v1.2/WonFesBingo.apk)
 
 ![Screenshots](https://raw.githubusercontent.com/matthewn4444/WonderFestivalBingo/master/screens/screenshot.jpg)
 
